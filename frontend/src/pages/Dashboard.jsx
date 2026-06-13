@@ -136,7 +136,7 @@ export default function Dashboard() {
 
         <section id="chat" aria-labelledby="chat-heading">
           <h2 id="chat-heading" className="text-lg font-bold text-gray-800 mb-3">Chat</h2>
-          <div id="chat" data-prefill={chatPrefill} className="bg-white rounded-xl p-6 text-center text-gray-400 border border-dashed border-gray-300">
+          <div data-prefill={chatPrefill} className="bg-white rounded-xl p-6 text-center text-gray-400 border border-dashed border-gray-300">
             Chat coming in Phase 12
           </div>
         </section>

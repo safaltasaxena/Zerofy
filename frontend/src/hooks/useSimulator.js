@@ -71,29 +71,42 @@ function safeSimulate(params) {
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
-export function useSimulator({ profile }) {
-  const initialState = {
+function buildInitialState(profile) {
+  return {
     commute_mode: profile?.commute_mode || 'bus',
     avg_daily_km: profile?.avg_daily_km ?? 10,
     diet_type: profile?.diet_type || 'vegetarian',
     ac_hours_per_day: profile?.ac_hours_per_day ?? 2,
     lpg_cylinders_per_month: profile?.lpg_cylinders_per_month ?? 1,
   }
+}
 
-  const [sliderState, setSliderState] = useState(initialState)
-  const [breakdown, setBreakdown] = useState(() => safeSimulate(initialState))
+export function useSimulator({ profile }) {
+  const [sliderState, setSliderState] = useState(() => buildInitialState(profile))
+  const [breakdown, setBreakdown] = useState(() => safeSimulate(buildInitialState(profile)))
+  const [isLoading, setIsLoading] = useState(false)
 
   const recalculate = (params) => {
+    setIsLoading(true)
     const result = safeSimulate(params)
     setBreakdown(result)
+    setIsLoading(false)
   }
 
   const debouncedRef = useRef(debounce(recalculate, 200))
 
+  // Cancel pending debounce on unmount
   useEffect(() => {
     const debounced = debouncedRef.current
     return () => debounced.cancel()
   }, [])
+
+  // FIX 2: Sync sliders when profile loads async after initial mount
+  useEffect(() => {
+    if (profile) {
+      setSliderState(buildInitialState(profile))
+    }
+  }, [profile])
 
   const handleSliderChange = (field, value) => {
     const next = { ...sliderState, [field]: value }
@@ -101,5 +114,5 @@ export function useSimulator({ profile }) {
     debouncedRef.current(next)
   }
 
-  return { sliderState, breakdown, handleSliderChange, buildLogMessage }
+  return { sliderState, breakdown, isLoading, handleSliderChange, buildLogMessage }
 }

@@ -21,7 +21,7 @@ const DIET_OPTIONS = [
 ]
 
 export default function SimulatorSection({ profile, onLogChanges }) {
-  const { sliderState, breakdown, handleSliderChange } = useSimulator({ profile })
+  const { sliderState, breakdown, isLoading, handleSliderChange } = useSimulator({ profile })
 
   const onSelect  = (field)  => (e) => handleSliderChange(field, e.target.value)
   const onRange   = (field)  => (e) => handleSliderChange(field, Number(e.target.value))
@@ -118,7 +118,7 @@ export default function SimulatorSection({ profile, onLogChanges }) {
         <div className="flex justify-between text-xs text-gray-400"><span>0</span><span>10</span></div>
       </div>
 
-      <SimulatorBreakdown breakdown={breakdown} isLoading={false} />
+      <SimulatorBreakdown breakdown={breakdown} isLoading={isLoading} />
 
       <button
         onClick={onLog}
