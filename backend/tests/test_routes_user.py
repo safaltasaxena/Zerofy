@@ -39,6 +39,7 @@ _VALID_ONBOARDING_BODY = {
     "diet_type": "vegetarian",
     "ac_hours_per_day": 2.0,
     "lpg_cylinders_per_month": 1.0,
+    "monthly_electricity_units": 200.0,
     "persona": "professional",
 }
 
@@ -51,6 +52,7 @@ _SAVED_PROFILE = {
     "diet_type": "vegetarian",
     "ac_hours_per_day": 2.0,
     "lpg_cylinders_per_month": 1.0,
+    "monthly_electricity_units": 200.0,
     "persona": "professional",
 }
 
@@ -257,6 +259,27 @@ def test_user_06_put_profile_non_updated_fields_preserved(client):
     assert body["data"]["profile"]["avg_daily_km"] == 12.0
     assert body["data"]["profile"]["diet_type"] == "vegetarian"  # unchanged
     assert body["data"]["profile"]["name"] == "Priya Sharma"     # unchanged
+
+
+def test_user_06_put_profile_update_electricity_units(client):
+    """USER-06 (electricity): PUT with monthly_electricity_units update."""
+    existing = dict(_SAVED_PROFILE)
+
+    with (
+        patch("firebase_admin.auth.verify_id_token", return_value=_mock_verify_token()),
+        patch("routes.user.get_db", return_value=_make_mock_db(existing)),
+    ):
+        response = client.put(
+            "/api/user/profile",
+            json={"monthly_electricity_units": 450.0},
+            headers=_auth_headers(),
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["profile"]["monthly_electricity_units"] == 450.0
+    assert body["data"]["profile"]["diet_type"] == "vegetarian"  # unchanged
 
 
 # ── USER-07 ───────────────────────────────────────────────────────────────────

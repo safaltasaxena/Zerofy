@@ -14,8 +14,7 @@ import json
 import os
 import re
 
-# Third-party
-import google.generativeai as genai
+from ai_client import generate_content
 
 
 # ── Custom exception ──────────────────────────────────────────────────────────
@@ -28,7 +27,7 @@ class SuggestionError(Exception):
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 _MAX_SUGGESTIONS: int = 3
-_GEMINI_MODEL: str = "gemini-1.5-flash"
+_GEMINI_MODEL: str = "gemini-2.0-flash"
 _POLISH_MAX_WORDS: int = 30
 
 # Thresholds — named so they are never magic numbers in rule bodies
@@ -82,10 +81,69 @@ _SUG_LPG_HIGH = (
     "High LPG usage detected. Consider an induction "
     "cooktop for daily cooking — it's cleaner and faster."
 )
-_SUG_FALLBACK = (
+_SUG_FALLBACK_1 = (
     "Track your habits daily — even small changes "
     "compound over a month."
 )
+_SUG_FALLBACK_2 = (
+    "Share your daily progress with friends or family to stay motivated."
+)
+_SUG_FALLBACK_3 = (
+    "Set a weekly goal to reduce your electricity or travel emissions by even 5%."
+)
+
+_SUG_FALLBACK = _SUG_FALLBACK_1
+
+_PERSONA_SUGGESTION_OVERRIDES: dict[str, dict[str, str]] = {
+    "student": {
+        _SUG_DIET_NON_VEG: "Try opting for a vegetarian meal at the college canteen or campus hostel once a week.",
+        _SUG_DIET_EGGETARIAN: "Try one fully vegan day a week at the campus dining hall.",
+        _SUG_NO_AC: "No AC in your room or hostel — great! Ceiling fans use 95% less energy than AC.",
+        _SUG_FALLBACK_1: "Encourage your college or hostel friends to track daily carbon habits together.",
+        _SUG_FALLBACK_2: "Try using stairs instead of the hostel lift whenever you can.",
+        _SUG_FALLBACK_3: "Turn off the lights and fan when leaving your dorm room or library.",
+    },
+    "professional": {
+        _SUG_CAR_HIGH_KM: "Consider carpooling with colleagues or taking the metro to optimize your office commute.",
+        _SUG_TWO_WHEELER_HIGH_KM: "Switch to public transit or share a ride for your daily office commute.",
+        _SUG_DIET_NON_VEG: "Try opting for a vegetarian lunch at the office cafeteria or packing a plant-based meal.",
+        _SUG_AC_HIGH: "Set your office/home study AC to 24°C to save electricity and cut workplace/home emissions.",
+        _SUG_FALLBACK_1: "Track your daily carbon habits to balance your busy professional routine with sustainability.",
+        _SUG_FALLBACK_2: "Turn off your office monitor or laptop when stepping away for meetings or lunch.",
+        _SUG_FALLBACK_3: "Consider digital note-taking to reduce paper waste at your workplace.",
+    },
+    "family": {
+        _SUG_CAR_HIGH_KM: "Consider carpooling with other families or using the metro to reduce household transport emissions.",
+        _SUG_TWO_WHEELER_HIGH_KM: "Consider using public transit for family trips to reduce two-wheeler dependency.",
+        _SUG_DIET_NON_VEG: "Introduce a plant-based meal day for the whole family to reduce household diet emissions.",
+        _SUG_DIET_EGGETARIAN: "Try hosting a family 'green kitchen' day with fully plant-based meals once a week.",
+        _SUG_AC_HIGH: "High home AC usage. Keeping the living room AC at 24°C cuts family energy bills and emissions.",
+        _SUG_AC_MODERATE: "Use ceiling fans alongside home AC and set the thermostat to 24°C for efficient family cooling.",
+        _SUG_LPG_HIGH: "High family LPG cylinder consumption. Try using an induction cooktop for daily household cooking.",
+        _SUG_FALLBACK_1: "Get the whole household involved in tracking daily carbon habits together.",
+        _SUG_FALLBACK_2: "Unplug household appliances when they are not in use to cut silent power draw.",
+        _SUG_FALLBACK_3: "Plan a weekly family 'zero-waste' day to minimize plastic and food waste.",
+    },
+    "teenager": {
+        _SUG_CAR_HIGH_KM: "Ask your parents about carpooling with school friends or taking the metro to hangouts.",
+        _SUG_TWO_WHEELER_HIGH_KM: "Consider riding a bicycle or sharing a school ride instead of petrol two-wheelers.",
+        _SUG_DIET_NON_VEG: "Replacing one fast-food meat meal per week with a veggie option makes a big impact.",
+        _SUG_NO_AC: "No AC in your study room — great! Ceiling fans use 95% less energy.",
+        _SUG_FALLBACK_1: "Challenge your friends at school to track daily carbon footprints together!",
+        _SUG_FALLBACK_2: "Remember to shut down your gaming console or PC when you are done playing.",
+        _SUG_FALLBACK_3: "Carry a reusable water bottle to school instead of buying plastic bottles.",
+    },
+    "senior": {
+        _SUG_CAR_HIGH_KM: "Consider using the metro or senior-friendly public transit for your travel to cut emissions.",
+        _SUG_TWO_WHEELER_HIGH_KM: "Try carpooling or using public transit for running errands when possible.",
+        _SUG_DIET_NON_VEG: "Consider adding a nutritious, fully plant-based meal to your diet once a week.",
+        _SUG_AC_HIGH: "Set your living room AC to a comfortable 24°C to save energy and lower household emissions.",
+        _SUG_LPG_HIGH: "For kitchen safety and efficiency, try using an induction cooktop for light cooking.",
+        _SUG_FALLBACK_1: "Share your carbon tracking journey and sustainable habits with the next generation.",
+        _SUG_FALLBACK_2: "Keep indoor plants to naturally purify air and cool down your living space.",
+        _SUG_FALLBACK_3: "Optimize your home water usage by reusing kitchen wastewater for gardening.",
+    }
+}
 
 
 # ── Rule helpers ──────────────────────────────────────────────────────────────
@@ -164,7 +222,7 @@ def _lpg_suggestion(profile: dict) -> str | None:
 
 # ── Core functions ────────────────────────────────────────────────────────────
 
-def get_rule_based_suggestions(profile: dict) -> list[str]:
+def get_rule_based_suggestions(profile: dict, persona: str = "general") -> list[str]:
     """Generate up to 3 habit improvement suggestions using rule-based logic.
 
     Pure function — no API calls, no DB access, no side effects.
@@ -174,6 +232,7 @@ def get_rule_based_suggestions(profile: dict) -> list[str]:
     Args:
         profile: User profile dict with keys: commute_mode, avg_daily_km,
                  diet_type, ac_hours_per_day, lpg_cylinders_per_month.
+        persona: User persona string (student, professional, family, etc.).
 
     Returns:
         Exactly 3 suggestion strings.
@@ -203,9 +262,18 @@ def get_rule_based_suggestions(profile: dict) -> list[str]:
             if result is not None:
                 suggestions.append(result)
 
-        # Pad to exactly 3 with the fallback
-        while len(suggestions) < _MAX_SUGGESTIONS:
-            suggestions.append(_SUG_FALLBACK)
+        # Pad to exactly 3 with distinct fallbacks
+        fallbacks = [_SUG_FALLBACK_1, _SUG_FALLBACK_2, _SUG_FALLBACK_3]
+        for f in fallbacks:
+            if len(suggestions) >= _MAX_SUGGESTIONS:
+                break
+            if f not in suggestions:
+                suggestions.append(f)
+
+        # Apply persona-specific overrides if applicable
+        if persona in _PERSONA_SUGGESTION_OVERRIDES:
+            overrides = _PERSONA_SUGGESTION_OVERRIDES[persona]
+            suggestions = [overrides.get(s, s) for s in suggestions]
 
         return suggestions[:_MAX_SUGGESTIONS]
 
@@ -281,15 +349,13 @@ def polish_suggestions(suggestions: list[str], persona: str) -> list[str]:
         List of 3 polished suggestion strings, or the original list on any failure.
     """
     try:
-        api_key = os.environ.get("GEMINI_API_KEY", "")
+        api_key = os.environ.get("OPENROUTER_API_KEY", "")
         if not api_key:
             return suggestions
-
+        
         prompt = _build_polish_prompt(suggestions, persona)
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(_GEMINI_MODEL)
-        response = model.generate_content(prompt)
-        parsed = _parse_polish_response(response.text)
+        text = generate_content(prompt)
+        parsed = _parse_polish_response(text)
         return parsed if parsed is not None else suggestions
 
     except Exception:
@@ -315,7 +381,7 @@ def get_suggestions(profile: dict, persona: str = "general") -> list[str]:
         SuggestionError: Only if rule generation itself fails (bad profile input).
     """
     try:
-        raw_suggestions = get_rule_based_suggestions(profile)
+        raw_suggestions = get_rule_based_suggestions(profile, persona)
         return polish_suggestions(raw_suggestions, persona)
     except SuggestionError:
         raise

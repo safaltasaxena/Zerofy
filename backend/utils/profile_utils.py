@@ -32,6 +32,7 @@ def profile_from_request(body: OnboardingRequest) -> dict:
             "avg_daily_km": body.avg_daily_km,
             "diet_type": body.diet_type,
             "ac_hours_per_day": body.ac_hours_per_day,
+            "monthly_electricity_units": body.monthly_electricity_units,
             "lpg_cylinders_per_month": body.lpg_cylinders_per_month,
             "persona": body.persona,
         }

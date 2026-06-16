@@ -59,9 +59,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         """
         try:
             response: Response = await call_next(request)
-            for header_name, header_value in _SECURITY_HEADERS.items():
-                response.headers[header_name] = header_value
-            return response
-        except Exception:
-            # Let the exception bubble up to the global exception handler
-            raise
+        except Exception as e:
+            from exception_handler import unhandled_exception_handler
+            response = await unhandled_exception_handler(request, e)
+
+        for header_name, header_value in _SECURITY_HEADERS.items():
+            response.headers[header_name] = header_value
+        return response

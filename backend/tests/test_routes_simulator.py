@@ -146,13 +146,13 @@ def test_sim_03_unknown_commute_mode_returns_friendly_error():
 # ── SIM-04 ────────────────────────────────────────────────────────────────────
 
 def test_sim_04_no_gemini_calls_ever():
-    """SIM-04: Simulator route never calls Gemini — pure math only."""
+    """SIM-04: Simulator route never calls AI — pure math only."""
     with (
         patch("firebase_admin.auth.verify_id_token", return_value={"uid": _FAKE_UID}),
         patch("firebase_admin._apps", {"[DEFAULT]": MagicMock()}),
         patch("routes.simulator.calculate_daily_score", return_value=5.44),
         patch("routes.simulator.calculate_breakdown", return_value=_MOCK_BREAKDOWN),
-        patch("google.generativeai.GenerativeModel") as mock_gemini,
+        patch("ai_client.generate_content") as mock_ai,
     ):
         from main import create_app
         from fastapi.testclient import TestClient
@@ -162,7 +162,7 @@ def test_sim_04_no_gemini_calls_ever():
             params=_VALID_PARAMS,
             headers=_auth_headers(),
         )
-        mock_gemini.assert_not_called()
+        mock_ai.assert_not_called()
 
 
 # ── SIM-05 ────────────────────────────────────────────────────────────────────

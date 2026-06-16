@@ -27,7 +27,8 @@ from models.requests import OnboardingRequest, ProfileUpdateRequest
 from utils.profile_utils import profile_from_request, merge_profile
 
 # Internal — calculation utils
-from utils.calculator import calculate_daily_score, CalculationError
+from utils.calculator import calculate_daily_score, calculate_breakdown, CalculationError
+from utils.analogy_engine import get_analogy
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,12 @@ async def onboarding(
     try:
         profile = profile_from_request(body)
         daily_co2_kg = calculate_daily_score(profile)
+        breakdown = calculate_breakdown(profile)
+
+        profile["baseline_daily_co2_kg"] = daily_co2_kg
+        profile["baseline_monthly_co2_kg"] = round(daily_co2_kg * 30, 2)
+        profile["score_breakdown"] = breakdown
+        profile["baseline_analogy"] = get_analogy(daily_co2_kg)
 
         db = get_db()
         db.collection(_PROFILES_COLLECTION).document(user_id).set(profile)
@@ -107,9 +114,13 @@ async def get_profile(
                 "error": "Profile not found. Please complete onboarding.",
             }
 
+        profile = doc.to_dict() or {}
+        if "baseline_daily_co2_kg" in profile:
+            profile["baseline_analogy"] = get_analogy(profile["baseline_daily_co2_kg"])
+
         return {
             "success": True,
-            "data": {"profile": doc.to_dict()},
+            "data": {"profile": profile},
             "error": None,
         }
 
@@ -154,6 +165,12 @@ async def update_profile(
         merged = merge_profile(existing, body)
 
         daily_co2_kg = calculate_daily_score(merged)
+        breakdown = calculate_breakdown(merged)
+
+        merged["baseline_daily_co2_kg"] = daily_co2_kg
+        merged["baseline_monthly_co2_kg"] = round(daily_co2_kg * 30, 2)
+        merged["score_breakdown"] = breakdown
+        merged["baseline_analogy"] = get_analogy(daily_co2_kg)
 
         db.collection(_PROFILES_COLLECTION).document(user_id).set(merged)
 

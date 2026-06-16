@@ -1,24 +1,70 @@
 # ──────────────────────────────────────────────
-# Secrets & credentials — NEVER committed
+
+# 🔐 Secrets & Credentials (CRITICAL)
+
 # ──────────────────────────────────────────────
+
 .env
-*.env
 .env.*
+*.env
+
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.production.local
+
 serviceAccountKey.json
 firebase-credentials.json
 
 # ──────────────────────────────────────────────
-# Python
-# ──────────────────────────────────────────────
-__pycache__/
-*.pyc
-.pytest_cache/
-*.egg-info/
+
+# 🐍 Python (Backend)
 
 # ──────────────────────────────────────────────
-# Node / Frontend
+
+backend/**pycache**/
+backend/**/*.pyc
+backend/.pytest_cache/
+backend/*.egg-info/
+backend/.venv/
+backend/venv/
+
 # ──────────────────────────────────────────────
-node_modules/
-dist/
-.env.local
-.env.production.local
+
+# 🌐 Node / Frontend
+
+# ──────────────────────────────────────────────
+
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Vite / cache
+
+frontend/.vite/
+frontend/.cache/
+
+# Logs
+
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# ──────────────────────────────────────────────
+
+# 🧠 General
+
+# ──────────────────────────────────────────────
+
+.DS_Store
+Thumbs.db
+
+# IDEs
+
+.vscode/
+.idea/
+
+# OS
+
+*.log
+

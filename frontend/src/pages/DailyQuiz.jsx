@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { getTodayQuiz, submitQuizAnswers } from '../utils/api'
 import QuestionCard from '../components/QuestionCard'
 import ResultCard from '../components/ResultCard'
@@ -23,7 +24,7 @@ export default function DailyQuiz() {
         setLoading(true)
         setError(null)
         const data = await getTodayQuiz(userId)
-        if (data?.submitted === true) {
+        if (data?.submitted === true || data?.already_submitted === true) {
           setIsLocked(true)
         } else {
           setQuestions(data?.questions || [])
@@ -88,6 +89,9 @@ export default function DailyQuiz() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6" aria-busy="true">
+        <div className="w-full max-w-md mb-4">
+          <Link to="/dashboard" className="text-sm text-green-700 font-medium hover:underline">&larr; Dashboard</Link>
+        </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Daily Quiz</h1>
         <div className="text-gray-500 animate-pulse">Loading quiz questions...</div>
       </div>
@@ -97,6 +101,9 @@ export default function DailyQuiz() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+        <div className="w-full max-w-md mb-4">
+          <Link to="/dashboard" className="text-sm text-green-700 font-medium hover:underline">&larr; Dashboard</Link>
+        </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Daily Quiz</h1>
         <div className="text-red-600 bg-red-50 px-4 py-3 rounded-xl border border-red-150 max-w-md text-center" role="alert">
           {error}
@@ -108,6 +115,9 @@ export default function DailyQuiz() {
   if (isLocked) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+        <div className="w-full max-w-md mb-4">
+          <Link to="/dashboard" className="text-sm text-green-700 font-medium hover:underline">&larr; Dashboard</Link>
+        </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-4">Daily Quiz</h1>
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-150 max-w-md text-center">
           <p className="text-gray-700 font-medium leading-relaxed">
@@ -124,6 +134,9 @@ export default function DailyQuiz() {
     const isCorrectArr = selectedAnswers.map((ans, i) => ans === questions[i].correct_index)
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+        <div className="w-full max-w-md mb-4">
+          <Link to="/dashboard" className="text-sm text-green-700 font-medium hover:underline">&larr; Dashboard</Link>
+        </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-4">Daily Quiz</h1>
         <div className="w-full max-w-md flex flex-col gap-4">
           <ResultCard
@@ -139,6 +152,9 @@ export default function DailyQuiz() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+      <div className="w-full max-w-md mb-4">
+        <Link to="/dashboard" className="text-sm text-green-700 font-medium hover:underline">&larr; Dashboard</Link>
+      </div>
       <h1 className="text-2xl font-bold text-gray-900 mb-4">Daily Quiz</h1>
       <div className="w-full max-w-md flex flex-col gap-4">
         {currentQuestion && (

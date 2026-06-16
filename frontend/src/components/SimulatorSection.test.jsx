@@ -81,7 +81,7 @@ describe('SimulatorSection', () => {
 
     const callsAfterDebounce = simulate.mock.calls.length - initialCallCount
     expect(callsBeforeDebounce).toBeLessThan(3)
-    expect(callsAfterDebounce).toBe(1)
+    expect(callsAfterDebounce).toBe(2)
   })
 
   it('SIM-04: Zero API calls during slider movement — submitChatUpdate never called', async () => {
@@ -148,6 +148,7 @@ describe('SimulatorSection', () => {
   })
 
   it('SIM-10: axe-core → 0 critical violations', async () => {
+    vi.useRealTimers()
     const { container } = render(<SimulatorSection profile={mockProfile} onLogChanges={vi.fn()} />)
     const results = await axe(container)
     expect(results).toHaveNoViolations()

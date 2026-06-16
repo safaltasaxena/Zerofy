@@ -63,8 +63,8 @@ export function useChatSession({ profile, onUpdateConfirmed }) {
   const [prefillData, setPrefillData] = useState(null)
   const [pendingData, setPendingData] = useState(null)
 
-  const addMessage = (text, isBot) =>
-    setMessages((prev) => [...prev, { text, isBot }])
+  const addMessage = (text, isBot, isError = false) =>
+    setMessages((prev) => [...prev, { text, isBot, isError }])
 
   const handleSend = async (inputText) => {
     const text = inputText.trim()
@@ -103,7 +103,7 @@ export function useChatSession({ profile, onUpdateConfirmed }) {
         }
       }
     } catch {
-      addMessage("Something went wrong. You can use the form below to update directly.", true)
+      addMessage("Something went wrong. You can use the form below to update directly.", true, true)
       setPrefillData(buildPrefills(null, profile))
       setShowQuickForm(true)
     } finally {
@@ -138,7 +138,7 @@ export function useChatSession({ profile, onUpdateConfirmed }) {
       if (deltaMsg) addMessage(deltaMsg, true)
       if (onUpdateConfirmed) onUpdateConfirmed(data)
     } catch {
-      addMessage("Couldn't save right now — please check your connection and try again.", true)
+      addMessage("Couldn't save right now — please check your connection and try again.", true, true)
     } finally {
       setIsLoading(false)
     }

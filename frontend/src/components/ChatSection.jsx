@@ -4,7 +4,7 @@ import MessageBubble from './MessageBubble'
 import ParsePreview from './ParsePreview'
 import QuickUpdateForm from './QuickUpdateForm'
 
-export default function ChatSection({ userId, profile, onUpdateConfirmed }) {
+export default function ChatSection({ userId, profile, onUpdateConfirmed, prefill }) {
   const {
     messages,
     isLoading,
@@ -21,8 +21,16 @@ export default function ChatSection({ userId, profile, onUpdateConfirmed }) {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef(null)
 
+  useEffect(() => {
+    if (prefill) {
+      setInput(prefill)
+    }
+  }, [prefill])
+
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (typeof messagesEndRef.current?.scrollIntoView === 'function') {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
   }
 
   useEffect(() => {
@@ -45,9 +53,9 @@ export default function ChatSection({ userId, profile, onUpdateConfirmed }) {
 
   return (
     <section className="flex flex-col h-[600px] max-h-screen bg-gray-50 border rounded-xl overflow-hidden relative" aria-label="Chat Update">
-      <div role="log" aria-live="polite" className="flex-1 overflow-y-auto p-4">
+      <div role="log" aria-live="polite" aria-busy={isLoading} className="flex-1 overflow-y-auto p-4">
         {messages.map((m, i) => (
-          <MessageBubble key={i} message={m.text} isBot={m.isBot} />
+          <MessageBubble key={i} message={m.text} isBot={m.isBot} isError={m.isError} />
         ))}
         {showPreview && previewData && (
           <ParsePreview preview={previewData} onConfirm={handleConfirm} onEdit={handleEdit} />
@@ -80,6 +88,7 @@ export default function ChatSection({ userId, profile, onUpdateConfirmed }) {
             type="submit"
             disabled={!input.trim() || isLoading || showPreview || showQuickForm}
             aria-label="Send"
+            aria-busy={isLoading}
             className="bg-green-600 text-white rounded-xl min-h-[44px] min-w-[44px] px-4 font-medium disabled:opacity-50 flex items-center justify-center mb-1 hover:bg-green-700 transition-colors"
           >
             Send

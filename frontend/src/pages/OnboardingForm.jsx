@@ -130,6 +130,7 @@ export default function OnboardingForm() {
             type="text" name="website" value={honeypot}
             onChange={(e) => setHoneypot(e.target.value)}
             tabIndex="-1" aria-hidden="true" autoComplete="off"
+            aria-label="Website"
             className="sr-only"
           />
 

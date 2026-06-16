@@ -16,8 +16,7 @@ import json
 import os
 import re
 
-# Third-party
-import google.generativeai as genai
+from ai_client import generate_content
 
 
 # ── Custom exceptions ─────────────────────────────────────────────────────────
@@ -35,7 +34,7 @@ class LowConfidenceError(Exception):
 # ── Constants — never magic numbers in call sites ─────────────────────────────
 
 _MAX_MESSAGE_LENGTH: int = 500
-_GEMINI_MODEL: str = "gemini-1.5-flash"
+_GEMINI_MODEL: str = "gemini-2.0-flash"
 _RETRY_PROMPT: str = (
     "Your previous response was not valid JSON. "
     "Return ONLY the JSON object, no other text."
@@ -254,17 +253,15 @@ def _call_gemini(prompt: str) -> str:
         ParseFailedError: If the API call fails for any reason.
     """
     try:
-        api_key = os.environ["GEMINI_API_KEY"]
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(_GEMINI_MODEL)
-        response = model.generate_content(prompt)
-        return response.text
+        if "OPENROUTER_API_KEY" not in os.environ:
+            raise KeyError()
+        return generate_content(prompt)
     except KeyError:
         raise ParseFailedError(
-            "GEMINI_API_KEY environment variable is not set."
+            "OPENROUTER_API_KEY environment variable is not set."
         )
     except Exception as e:
-        raise ParseFailedError(f"Gemini API call failed: {e}") from e
+        raise ParseFailedError(f"AI API call failed: {e}") from e
 
 
 def parse_user_message(message: str) -> dict:

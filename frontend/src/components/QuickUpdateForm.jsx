@@ -3,8 +3,8 @@ import { useState } from 'react'
 export default function QuickUpdateForm({ prefills, onSubmit, isLoading }) {
   const [formData, setFormData] = useState({
     commute_mode: prefills?.commute_mode || '',
-    avg_daily_km: prefills?.avg_daily_km ?? '',
-    ac_hours_per_day: prefills?.ac_hours_per_day ?? '',
+    avg_daily_km: prefills?.avg_daily_km != null ? String(prefills.avg_daily_km) : '',
+    ac_hours_per_day: prefills?.ac_hours_per_day != null ? String(prefills.ac_hours_per_day) : '',
     diet_type: prefills?.diet_type || ''
   })
   const [error, setError] = useState('')

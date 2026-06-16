@@ -3,7 +3,7 @@
 Maps to TESTING.md §3c (SUG-01 through SUG-08) and the Phase-4 PARSE test matrix
 (SUG-01 through SUG-12).
 
-ALL Gemini API calls are mocked — no real network calls are made in any test.
+ALL AI API calls are mocked — no real network calls are made in any test.
 get_rule_based_suggestions is a pure function and requires no mocking.
 """
 
@@ -46,15 +46,6 @@ def _profile(**overrides) -> dict:
     }
     base.update(overrides)
     return base
-
-
-def _make_gemini_mock(text: str) -> MagicMock:
-    """Return a mock that behaves like a Gemini model returning the given text."""
-    mock_response = MagicMock()
-    mock_response.text = text
-    mock_model = MagicMock()
-    mock_model.generate_content.return_value = mock_response
-    return mock_model
 
 
 # ── SUG-01 ────────────────────────────────────────────────────────────────────
@@ -192,32 +183,26 @@ def test_sug_07_always_returns_exactly_3():
 # ── SUG-08 ────────────────────────────────────────────────────────────────────
 
 def test_sug_08_polish_returns_original_on_gemini_api_failure(monkeypatch):
-    """SUG-08: polish_suggestions returns original list on Gemini failure — does not raise."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    """SUG-08: polish_suggestions returns original list on AI failure — does not raise."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     original = ["tip one", "tip two", "tip three"]
 
-    with patch("utils.suggestion_engine.genai") as mock_genai:
-        mock_model = MagicMock()
-        mock_genai.GenerativeModel.return_value = mock_model
-        mock_model.generate_content.side_effect = Exception("API unreachable")
-
+    with patch("utils.suggestion_engine.generate_content") as mock_generate:
+        mock_generate.side_effect = Exception("API unreachable")
         result = polish_suggestions(original, "student")
 
     assert result == original
 
 
 def test_sug_08_get_suggestions_returns_unpolished_on_gemini_failure(monkeypatch):
-    """SUG-08 (get_suggestions path): Gemini unavailable → returns rule-based suggestions."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    """SUG-08 (get_suggestions path): AI unavailable → returns rule-based suggestions."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     profile = _profile(commute_mode="petrol_car", avg_daily_km=15.0,
                        diet_type="non_vegetarian", ac_hours_per_day=8.0)
 
-    with patch("utils.suggestion_engine.genai") as mock_genai:
-        mock_model = MagicMock()
-        mock_genai.GenerativeModel.return_value = mock_model
-        mock_model.generate_content.side_effect = TimeoutError("timeout")
-
-        result = get_suggestions(profile, persona="student")
+    with patch("utils.suggestion_engine.generate_content") as mock_generate:
+        mock_generate.side_effect = TimeoutError("timeout")
+        result = get_suggestions(profile, persona="general")
 
     assert len(result) == _MAX_SUGGESTIONS
     assert all(isinstance(s, str) for s in result)
@@ -230,52 +215,37 @@ def test_sug_08_get_suggestions_returns_unpolished_on_gemini_failure(monkeypatch
 
 def test_sug_09_polish_returns_original_on_json_parse_failure(monkeypatch):
     """SUG-09: polish_suggestions returns original on JSON parse failure — does not raise."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     original = ["tip one", "tip two", "tip three"]
 
-    with patch("utils.suggestion_engine.genai") as mock_genai:
-        mock_response = MagicMock()
-        mock_response.text = "this is not valid json at all"
-        mock_model = MagicMock()
-        mock_model.generate_content.return_value = mock_response
-        mock_genai.GenerativeModel.return_value = mock_model
-
+    with patch("utils.suggestion_engine.generate_content") as mock_generate:
+        mock_generate.return_value = "this is not valid json at all"
         result = polish_suggestions(original, "professional")
 
     assert result == original
 
 
 def test_sug_09_polish_returns_original_on_wrong_array_length(monkeypatch):
-    """SUG-09 (variant): Gemini returns array of wrong length → original returned."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    """SUG-09 (variant): AI returns array of wrong length → original returned."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     original = ["tip one", "tip two", "tip three"]
     wrong_response = json.dumps(["only one tip"])  # wrong length
 
-    with patch("utils.suggestion_engine.genai") as mock_genai:
-        mock_response = MagicMock()
-        mock_response.text = wrong_response
-        mock_model = MagicMock()
-        mock_model.generate_content.return_value = mock_response
-        mock_genai.GenerativeModel.return_value = mock_model
-
+    with patch("utils.suggestion_engine.generate_content") as mock_generate:
+        mock_generate.return_value = wrong_response
         result = polish_suggestions(original, "family")
 
     assert result == original
 
 
 def test_sug_09_polish_returns_original_on_non_string_array(monkeypatch):
-    """SUG-09 (variant): Gemini returns array of non-strings → original returned."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    """SUG-09 (variant): AI returns array of non-strings → original returned."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     original = ["tip one", "tip two", "tip three"]
     bad_response = json.dumps([1, 2, 3])  # numbers, not strings
 
-    with patch("utils.suggestion_engine.genai") as mock_genai:
-        mock_response = MagicMock()
-        mock_response.text = bad_response
-        mock_model = MagicMock()
-        mock_model.generate_content.return_value = mock_response
-        mock_genai.GenerativeModel.return_value = mock_model
-
+    with patch("utils.suggestion_engine.generate_content") as mock_generate:
+        mock_generate.return_value = bad_response
         result = polish_suggestions(original, "teenager")
 
     assert result == original
@@ -285,17 +255,12 @@ def test_sug_09_polish_returns_original_on_non_string_array(monkeypatch):
 
 def test_sug_10_get_suggestions_returns_exactly_3(monkeypatch):
     """SUG-10: get_suggestions always returns exactly 3 strings."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     profile = _profile()
     polished = ["polished one", "polished two", "polished three"]
 
-    with patch("utils.suggestion_engine.genai") as mock_genai:
-        mock_response = MagicMock()
-        mock_response.text = json.dumps(polished)
-        mock_model = MagicMock()
-        mock_model.generate_content.return_value = mock_response
-        mock_genai.GenerativeModel.return_value = mock_model
-
+    with patch("utils.suggestion_engine.generate_content") as mock_generate:
+        mock_generate.return_value = json.dumps(polished)
         result = get_suggestions(profile, persona="professional")
 
     assert len(result) == _MAX_SUGGESTIONS
@@ -304,13 +269,10 @@ def test_sug_10_get_suggestions_returns_exactly_3(monkeypatch):
 
 def test_sug_10_get_suggestions_returns_strings_not_none(monkeypatch):
     """SUG-10 (variant): every item in result is a non-empty string."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
 
-    with patch("utils.suggestion_engine.genai") as mock_genai:
-        mock_model = MagicMock()
-        mock_genai.GenerativeModel.return_value = mock_model
-        mock_model.generate_content.side_effect = Exception("unavailable")
-
+    with patch("utils.suggestion_engine.generate_content") as mock_generate:
+        mock_generate.side_effect = Exception("unavailable")
         result = get_suggestions(_profile(), persona="student")
 
     assert len(result) == _MAX_SUGGESTIONS
@@ -339,23 +301,18 @@ def test_sug_11_ev_suggestion_contains_offpeak_hours():
 # ── SUG-12 ────────────────────────────────────────────────────────────────────
 
 def test_sug_12_persona_passed_to_gemini_prompt(monkeypatch):
-    """SUG-12: persona string appears in the prompt sent to Gemini."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    """SUG-12: persona string appears in the prompt sent to AI."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     original = ["tip one", "tip two", "tip three"]
     persona = "teenager"
     captured_prompts: list[str] = []
 
-    with patch("utils.suggestion_engine.genai") as mock_genai:
-        mock_response = MagicMock()
-        mock_response.text = json.dumps(original)
-        mock_model = MagicMock()
-        mock_genai.GenerativeModel.return_value = mock_model
-
+    with patch("utils.suggestion_engine.generate_content") as mock_generate:
         def capture(prompt):
             captured_prompts.append(prompt)
-            return mock_response
+            return json.dumps(original)
 
-        mock_model.generate_content.side_effect = capture
+        mock_generate.side_effect = capture
         polish_suggestions(original, persona)
 
     assert len(captured_prompts) == 1
@@ -413,43 +370,32 @@ def test_rule_results_are_unique():
 
 
 def test_polish_no_api_key_returns_original(monkeypatch):
-    """polish_suggestions returns original list when GEMINI_API_KEY is not set."""
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    """polish_suggestions returns original list when OPENROUTER_API_KEY is not set."""
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     original = ["tip one", "tip two", "tip three"]
     result = polish_suggestions(original, "student")
     assert result == original
 
 
 def test_polish_valid_response_returns_polished_list(monkeypatch):
-    """polish_suggestions returns polished list when Gemini succeeds."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    """polish_suggestions returns polished list when AI succeeds."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     original = ["raw tip one", "raw tip two", "raw tip three"]
     polished = ["polished tip one", "polished tip two", "polished tip three"]
 
-    with patch("utils.suggestion_engine.genai") as mock_genai:
-        mock_response = MagicMock()
-        mock_response.text = json.dumps(polished)
-        mock_model = MagicMock()
-        mock_model.generate_content.return_value = mock_response
-        mock_genai.GenerativeModel.return_value = mock_model
-
+    with patch("utils.suggestion_engine.generate_content") as mock_generate:
+        mock_generate.return_value = json.dumps(polished)
         result = polish_suggestions(original, "family")
 
     assert result == polished
 
 
 def test_gemini_called_exactly_once_for_polish(monkeypatch):
-    """polish_suggestions makes exactly 1 Gemini call — never more."""
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    """polish_suggestions makes exactly 1 AI call — never more."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     original = ["a", "b", "c"]
 
-    with patch("utils.suggestion_engine.genai") as mock_genai:
-        mock_response = MagicMock()
-        mock_response.text = json.dumps(original)
-        mock_model = MagicMock()
-        mock_model.generate_content.return_value = mock_response
-        mock_genai.GenerativeModel.return_value = mock_model
-
+    with patch("utils.suggestion_engine.generate_content") as mock_generate:
+        mock_generate.return_value = json.dumps(original)
         polish_suggestions(original, "professional")
-
-        assert mock_model.generate_content.call_count == 1
+        assert mock_generate.call_count == 1

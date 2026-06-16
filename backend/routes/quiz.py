@@ -17,13 +17,12 @@ import os
 import re
 from datetime import date
 
-# Third-party
-import google.generativeai as genai
+from ai_client import generate_content
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 # Internal — shared rate limiter
-from main import limiter
+from middleware.rate_limiter import limiter
 
 # Internal — auth
 from middleware.auth import verify_token
@@ -45,7 +44,7 @@ _QUIZ_RESULTS_COLLECTION: str = "quiz_results"
 _DAILY_LOGS_COLLECTION: str = "daily_logs"
 _GAMIFICATION_COLLECTION: str = "gamification"
 _QUIZ_QUESTION_COUNT: int = 3
-_GEMINI_MODEL: str = "gemini-1.5-flash"
+_GEMINI_MODEL: str = "gemini-2.0-flash"
 _QUIZ_RATE_LIMIT: str = "30/minute"
 _POINTS_PER_CORRECT: int = 5
 
@@ -182,18 +181,16 @@ def _call_gemini_for_quiz(worst_category: str) -> list[dict]:
         ValueError: If the API call fails or the response is unparsable.
     """
     try:
-        api_key = os.environ.get("GEMINI_API_KEY", "")
+        api_key = os.environ.get("OPENROUTER_API_KEY", "")
         if not api_key:
-            raise ValueError("GEMINI_API_KEY not set")
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(_GEMINI_MODEL)
+            raise ValueError("OPENROUTER_API_KEY not set")
         prompt = _build_quiz_prompt(worst_category)
-        response = model.generate_content(prompt)
-        return _parse_quiz_response(response.text)
+        text = generate_content(prompt)
+        return _parse_quiz_response(text)
     except ValueError:
         raise
     except Exception as e:
-        raise ValueError(f"Gemini API call failed: {e}") from e
+        raise ValueError(f"AI API call failed: {e}") from e
 
 
 def _score_answers(questions: list[dict], answers: list[int]) -> dict:

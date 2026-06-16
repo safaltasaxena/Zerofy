@@ -377,11 +377,17 @@ def test_sec_10_rate_limit_exceeded_standard_shape():
 
 def test_request_filter_path_traversal_blocked_directly():
     """Unit: RequestFilterMiddleware blocks ../ in URL path directly."""
-    from fastapi import FastAPI
+    from fastapi import FastAPI, Request
     from middleware.request_filter import RequestFilterMiddleware
 
     app = FastAPI()
     app.add_middleware(RequestFilterMiddleware)
+
+    @app.middleware("http")
+    async def mock_path_traversal(request: Request, call_next):
+        request.scope["path"] = "/../safe"
+        request.scope["raw_path"] = b"/../safe"
+        return await call_next(request)
 
     @app.get("/safe")
     async def safe():

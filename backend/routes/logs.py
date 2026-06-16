@@ -18,10 +18,10 @@ import logging
 from datetime import date, timedelta
 
 # Third-party
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-# Internal — shared rate limiter (defined in main.py to avoid duplicate instances)
-from main import limiter
+# Internal — shared rate limiter
+from middleware.rate_limiter import limiter
 
 # Internal — auth
 from middleware.auth import verify_token
@@ -218,17 +218,50 @@ async def get_today_log(
         doc_id = _today_doc_id(user_id)
         doc = db.collection(_DAILY_LOGS_COLLECTION).document(doc_id).get()
 
+        # Load profile for suggestions & baseline habits fallback
+        profile_doc = db.collection(_PROFILES_COLLECTION).document(user_id).get()
+        profile = profile_doc.to_dict() if profile_doc.exists else {}
+        persona = profile.get("persona", "general")
+        try:
+            suggestions = get_suggestions(profile, persona)
+        except Exception:
+            suggestions = []
+
         if not doc.exists:
             return {
                 "success": True,
-                "data": _zeroed_response(user_id),
+                "data": {
+                    **_zeroed_response(user_id),
+                    "suggestions": suggestions,
+                },
                 "error": None,
             }
 
         log = doc.to_dict() or {}
-        daily_co2_kg = calculate_daily_score(log)
-        breakdown = calculate_breakdown(log)
-        analogy = get_analogy(daily_co2_kg)
+
+        # Guard: a partial log (e.g. only ac_hours_per_day) will raise
+        # CalculationError because commute_mode / diet_type are missing.
+        # Return a zeroed structure so the dashboard can still load.
+        try:
+            daily_co2_kg = calculate_daily_score(log)
+            breakdown = calculate_breakdown(log)
+            analogy = get_analogy(daily_co2_kg)
+        except CalculationError:
+            logger.warning(
+                "get_today_log: partial log for %s — returning zeroed scores", user_id
+            )
+            zeroed = _zeroed_response(user_id)
+            return {
+                "success": True,
+                "data": {
+                    "log": log,
+                    "daily_co2_kg": zeroed["daily_co2_kg"],
+                    "breakdown": zeroed["breakdown"],
+                    "analogy": zeroed["analogy"],
+                    "suggestions": suggestions,
+                },
+                "error": None,
+            }
 
         return {
             "success": True,
@@ -237,6 +270,7 @@ async def get_today_log(
                 "daily_co2_kg": daily_co2_kg,
                 "breakdown": breakdown,
                 "analogy": analogy,
+                "suggestions": suggestions,
             },
             "error": None,
         }
@@ -321,7 +355,7 @@ async def get_weekly_trend(
 @router.post("/logs/chat-update")
 @limiter.limit(_CHAT_RATE_LIMIT)
 async def chat_update(
-    request,   # injected by slowapi — must be first positional after self
+    request: Request,   # injected by slowapi — must be first positional after self
     body: ChatUpdateRequest,
     token_uid: str = Depends(verify_token),
 ) -> dict:
@@ -351,6 +385,43 @@ async def chat_update(
     try:
         # Step 1 — parse user message via Gemini
         parsed_fields = parse_user_message(body.message)
+
+        # Determine confidence, preview, and bot_reply.
+        # A numeric value of 0 is still valid data (e.g. "I skipped the AC" → 0h).
+        # We only treat a field as unparsed when its value is None.
+        has_parsed_data = any(
+            (v is not None and v.strip() != '') if isinstance(v, str) else v is not None
+            for v in parsed_fields.values()
+        )
+        
+        confidence = "high" if has_parsed_data else "low"
+        preview = None
+        bot_reply = "Could you tell me a bit more?"
+        
+        if has_parsed_data:
+            if parsed_fields.get("commute_mode"):
+                mode = parsed_fields["commute_mode"]
+                km = parsed_fields.get("avg_daily_km") or 0.0
+                mode_str = mode.replace('_', ' ')
+                emoji = "🚇" if mode == "metro" else "🚗" if "car" in mode or "vehicle" in mode else "🛵" if "wheeler" in mode else "🚌" if mode == "bus" else "🚶" if mode == "walking" else "🚲" if mode == "cycling" else "🚇"
+                
+                preview = {"category": "Transport", "change": mode, "quantity": km, "unit": "km"}
+                qty_str = int(km) if km.is_integer() else km
+                bot_reply = f"Got it — you switched to {mode_str} for {qty_str} km {emoji} Confirm?"
+            elif parsed_fields.get("diet_type"):
+                diet = parsed_fields["diet_type"]
+                diet_str = diet.replace('_', ' ')
+                preview = {"category": "Diet", "change": diet, "quantity": 1, "unit": "day"}
+                bot_reply = f"Got it — you had a {diet_str} meal today? Confirm?"
+            elif parsed_fields.get("ac_hours_per_day") is not None:
+                ac = parsed_fields["ac_hours_per_day"]
+                preview = {"category": "AC Usage", "change": "AC", "quantity": ac, "unit": "hours"}
+                qty_str = int(ac) if ac.is_integer() else ac
+                bot_reply = f"Got it — you used the AC for {qty_str} hours today ❄️ Confirm?"
+            elif parsed_fields.get("lpg_cylinders_per_month") is not None:
+                lpg = parsed_fields["lpg_cylinders_per_month"]
+                preview = {"category": "LPG Cylinder", "change": "LPG", "quantity": lpg, "unit": "cylinders"}
+                bot_reply = f"Got it — you used {lpg} LPG cylinders this month? Confirm?"
 
         db = get_db()
         doc_id = _today_doc_id(user_id)
@@ -408,7 +479,16 @@ async def chat_update(
                 "breakdown": breakdown,
                 "analogy": analogy,
                 "delta": delta,
+                "delta_kg": delta,
                 "suggestions": suggestions,
+                "confidence": confidence,
+                "bot_reply": bot_reply,
+                "preview": preview,
+                "commute_mode": parsed_fields.get("commute_mode"),
+                "avg_daily_km": parsed_fields.get("avg_daily_km"),
+                "diet_type": parsed_fields.get("diet_type"),
+                "ac_hours_per_day": parsed_fields.get("ac_hours_per_day"),
+                "lpg_cylinders_per_month": parsed_fields.get("lpg_cylinders_per_month"),
             },
             "error": None,
         }
@@ -418,7 +498,7 @@ async def chat_update(
         return {
             "success": False,
             "data": None,
-            "error": "Couldn't understand that — please try the quick-update form below.",
+            "error": "Hmm, I didn't quite catch that — try the quick form below",
         }
     except CalculationError as e:
         logger.warning("chat_update: calculation error for %s: %s", user_id, e)

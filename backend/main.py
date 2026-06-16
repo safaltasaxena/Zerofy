@@ -25,11 +25,11 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 # Internal — middleware
+from middleware.rate_limiter import limiter
 from middleware.security_headers import SecurityHeadersMiddleware
 from middleware.request_filter import RequestFilterMiddleware
 from middleware.request_size import RequestSizeLimitMiddleware
@@ -57,13 +57,6 @@ _HEALTH_STATUS: dict[str, str] = {"status": "ok"}
 _ALLOWED_METHODS: list[str] = ["GET", "POST", "PUT"]
 _ALLOWED_HEADERS: list[str] = ["Content-Type", "Authorization"]
 
-
-# ── Rate limiter ──────────────────────────────────────────────────────────────
-
-limiter = Limiter(
-    key_func=get_remote_address,
-    storage_uri=os.getenv("RATE_LIMIT_STORAGE_URI", "memory://"),
-)
 
 
 # ── App factory ───────────────────────────────────────────────────────────────

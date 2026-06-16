@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { getProfile, getGamification } from '../utils/api'
 import BadgeShelf from '../components/BadgeShelf'
 
@@ -62,6 +62,9 @@ export default function Profile() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6" aria-busy="true">
+        <div className="w-full max-w-md mb-4">
+          <Link to="/dashboard" className="text-sm text-green-700 font-medium hover:underline">&larr; Dashboard</Link>
+        </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">My Profile</h1>
         <div className="text-gray-500 animate-pulse">Loading profile details...</div>
       </div>
@@ -71,6 +74,9 @@ export default function Profile() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+        <div className="w-full max-w-md mb-4">
+          <Link to="/dashboard" className="text-sm text-green-700 font-medium hover:underline">&larr; Dashboard</Link>
+        </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">My Profile</h1>
         <div className="text-red-600 bg-red-50 px-4 py-3 rounded-xl border border-red-150 max-w-md text-center" role="alert">
           {error}
@@ -81,6 +87,9 @@ export default function Profile() {
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-50 p-6">
+      <div className="w-full max-w-md mb-4">
+        <Link to="/dashboard" className="text-sm text-green-700 font-medium hover:underline">&larr; Dashboard</Link>
+      </div>
       <div className="w-full max-w-md flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>

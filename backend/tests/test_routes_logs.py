@@ -80,10 +80,15 @@ def _make_mock_db(
 ) -> MagicMock:
     """Build a mock Firestore client covering all collection access patterns in logs.py."""
     db = MagicMock()
+    collections = {}
 
     # Dispatch .collection() calls by collection name
     def _collection_side_effect(name: str):
+        if name in collections:
+            return collections[name]
+
         coll = MagicMock()
+        collections[name] = coll
 
         if name == "daily_logs":
             doc_ref = MagicMock()

@@ -83,6 +83,7 @@ class ProfileUpdateRequest(BaseModel):
     diet_type: Optional[DietTypeEnum] = None
     ac_hours_per_day: Optional[float] = Field(None, ge=0.0, le=24.0)
     lpg_cylinders_per_month: Optional[float] = Field(None, ge=0.0, le=10.0)
+    monthly_electricity_units: Optional[float] = Field(None, ge=0.0, le=10000.0)
     persona: Optional[PersonaEnum] = None
 
     model_config = {"use_enum_values": True}

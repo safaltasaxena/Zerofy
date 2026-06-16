@@ -102,9 +102,15 @@ def _make_quiz_db(
 ) -> MagicMock:
     """Build a multi-collection mock Firestore client for quiz routes."""
     db = MagicMock()
+    collections = {}
 
     def _collection(name: str):
+        if name in collections:
+            return collections[name]
+
         coll = MagicMock()
+        collections[name] = coll
+
         if name == "quiz_results":
             doc_ref = MagicMock()
             doc_ref.get.return_value = _mock_doc(quiz_data)
@@ -150,7 +156,7 @@ def test_quiz_01_cached_quiz_returned_without_gemini_call():
         patch("firebase_admin.auth.verify_id_token", return_value={"uid": _FAKE_UID}),
         patch("routes.quiz.get_db", return_value=mock_db),
         patch("firebase_admin._apps", {"[DEFAULT]": MagicMock()}),
-        patch("routes.quiz.genai") as mock_genai,
+        patch("routes.quiz.generate_content") as mock_generate,
     ):
         from main import create_app
         client = TestClient(create_app(), raise_server_exceptions=False)
@@ -162,7 +168,7 @@ def test_quiz_01_cached_quiz_returned_without_gemini_call():
     assert body["data"]["generated_fresh"] is False
     assert len(body["data"]["questions"]) == 3
     # Gemini must NOT have been called
-    mock_genai.GenerativeModel.assert_not_called()
+    mock_generate.assert_not_called()
 
 
 # ── QUIZ-02 ───────────────────────────────────────────────────────────────────
@@ -171,13 +177,12 @@ def test_quiz_02_no_cache_calls_gemini_once_and_caches():
     """QUIZ-02: GET /today — no cache → Gemini called once, result cached, generated_fresh: true."""
     mock_db = _make_quiz_db(quiz_data=None)
     gemini_response = json.dumps(_FAKE_QUESTIONS)
-    mock_genai = _make_gemini_mock(gemini_response)
 
     with (
         patch("firebase_admin.auth.verify_id_token", return_value={"uid": _FAKE_UID}),
         patch("routes.quiz.get_db", return_value=mock_db),
         patch("firebase_admin._apps", {"[DEFAULT]": MagicMock()}),
-        patch("routes.quiz.genai", mock_genai),
+        patch("routes.quiz.generate_content", return_value=gemini_response) as mock_generate,
     ):
         from main import create_app
         client = TestClient(create_app(), raise_server_exceptions=False)
@@ -189,7 +194,7 @@ def test_quiz_02_no_cache_calls_gemini_once_and_caches():
     assert body["data"]["generated_fresh"] is True
     assert len(body["data"]["questions"]) == 3
     # Gemini must have been called exactly once
-    mock_genai.GenerativeModel.return_value.generate_content.assert_called_once()
+    mock_generate.assert_called_once()
     # Firestore set() must have been called to cache
     quiz_coll = mock_db.collection("quiz_results")
     quiz_coll.document.return_value.set.assert_called_once()
@@ -205,9 +210,9 @@ def test_quiz_03_gemini_failure_returns_friendly_error():
         patch("firebase_admin.auth.verify_id_token", return_value={"uid": _FAKE_UID}),
         patch("routes.quiz.get_db", return_value=mock_db),
         patch("firebase_admin._apps", {"[DEFAULT]": MagicMock()}),
-        patch("routes.quiz.genai") as mock_genai,
+        patch("routes.quiz.generate_content") as mock_generate,
     ):
-        mock_genai.GenerativeModel.return_value.generate_content.side_effect = Exception("API down")
+        mock_generate.side_effect = Exception("API down")
         from main import create_app
         client = TestClient(create_app(), raise_server_exceptions=False)
         response = client.get(f"/api/quiz/today/{_FAKE_UID}", headers=_auth_headers())
@@ -507,13 +512,12 @@ def test_quiz_11_quiz_cached_at_correct_firestore_path():
     """QUIZ-11: On cache miss, quiz cached at quiz_results/{user_id}_{date}."""
     mock_db = _make_quiz_db(quiz_data=None)
     gemini_response = json.dumps(_FAKE_QUESTIONS)
-    mock_genai = _make_gemini_mock(gemini_response)
 
     with (
         patch("firebase_admin.auth.verify_id_token", return_value={"uid": _FAKE_UID}),
         patch("routes.quiz.get_db", return_value=mock_db),
         patch("firebase_admin._apps", {"[DEFAULT]": MagicMock()}),
-        patch("routes.quiz.genai", mock_genai),
+        patch("routes.quiz.generate_content", return_value=gemini_response),
     ):
         from main import create_app
         client = TestClient(create_app(), raise_server_exceptions=False)
@@ -547,7 +551,7 @@ def test_quiz_12_gemini_called_0_times_on_cached_hit():
         patch("firebase_admin.auth.verify_id_token", return_value={"uid": _FAKE_UID}),
         patch("routes.quiz.get_db", return_value=mock_db),
         patch("firebase_admin._apps", {"[DEFAULT]": MagicMock()}),
-        patch("routes.quiz.genai") as mock_genai,
+        patch("routes.quiz.generate_content") as mock_generate,
     ):
         from main import create_app
         client = TestClient(create_app(), raise_server_exceptions=False)
@@ -560,7 +564,7 @@ def test_quiz_12_gemini_called_0_times_on_cached_hit():
     assert r1.status_code == 200
     assert r2.status_code == 200
     # Gemini must never have been called in either request
-    mock_genai.GenerativeModel.assert_not_called()
+    mock_generate.assert_not_called()
     assert r1.json()["data"]["generated_fresh"] is False
     assert r2.json()["data"]["generated_fresh"] is False
 

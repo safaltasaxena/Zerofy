@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { getLeaderboard } from '../utils/api'
 
 function toOrdinal(n) {
@@ -57,6 +58,9 @@ export default function Leaderboard() {
   if (loading) {
     return (
       <div className="flex flex-col items-center min-h-screen bg-gray-50 p-6" aria-busy="true">
+        <div className="w-full max-w-xl mb-4">
+          <Link to="/dashboard" className="text-sm text-green-700 font-medium hover:underline">&larr; Dashboard</Link>
+        </div>
         <div className="w-full max-w-xl flex flex-col gap-4">
           <h1 className="text-2xl font-bold text-gray-900 self-start">Leaderboard</h1>
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-150 flex flex-col gap-3">
@@ -78,6 +82,9 @@ export default function Leaderboard() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+        <div className="w-full max-w-xl mb-4">
+          <Link to="/dashboard" className="text-sm text-green-700 font-medium hover:underline">&larr; Dashboard</Link>
+        </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Leaderboard</h1>
         <div className="text-red-600 bg-red-50 px-4 py-3 rounded-xl border border-red-150 max-w-md text-center" role="alert">
           {error}
@@ -88,6 +95,9 @@ export default function Leaderboard() {
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-50 p-6">
+      <div className="w-full max-w-xl mb-4">
+        <Link to="/dashboard" className="text-sm text-green-700 font-medium hover:underline">&larr; Dashboard</Link>
+      </div>
       <div className="w-full max-w-xl flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold text-gray-900">Leaderboard</h1>

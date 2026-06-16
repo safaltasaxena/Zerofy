@@ -23,6 +23,7 @@ from typing import Literal
 
 # Third-party
 from fastapi import APIRouter, Depends, HTTPException, status
+from google.cloud import firestore
 from pydantic import BaseModel, Field
 
 # Internal — auth
@@ -135,6 +136,13 @@ async def _update_gamification_async(
 
         all_badges = existing_badges + new_badges
 
+        # Resolve state from current doc or fall back to profiles collection
+        user_state = current.get("state", "")
+        if not user_state:
+            profile_doc = db.collection("profiles").document(user_id).get()
+            if profile_doc.exists:
+                user_state = profile_doc.to_dict().get("state", "")
+
         # ── Persist ───────────────────────────────────────────────────────────
         updated = {
             "streak": new_streak,
@@ -143,13 +151,15 @@ async def _update_gamification_async(
             "badges": all_badges,
             "last_active_date": today_str,
             "lifetime_logs": lifetime_logs,
-            "state": current.get("state", ""),
+            "state": user_state,
         }
         ref.set(updated)
 
         return {
             "streak": new_streak,
+            "log_streak": new_streak,
             "points": new_points,
+            "awareness_score": new_points,
             "new_badges": new_badges,
             "weekly_score": new_weekly,
         }
@@ -196,7 +206,9 @@ async def get_gamification(
                 "success": True,
                 "data": {
                     "streak": 0,
+                    "log_streak": 0,
                     "points": 0,
+                    "awareness_score": 0,
                     "badges": [],
                     "weekly_score": 0.0,
                     "rank": None,
@@ -209,7 +221,9 @@ async def get_gamification(
             "success": True,
             "data": {
                 "streak": data.get("streak", 0),
+                "log_streak": data.get("streak", 0),
                 "points": data.get("points", 0),
+                "awareness_score": data.get("points", 0),
                 "badges": data.get("badges", []),
                 "weekly_score": data.get("weekly_score", 0.0),
                 "rank": data.get("rank", None),
@@ -278,4 +292,96 @@ async def update_gamification(
             "success": False,
             "data": None,
             "error": "Something went wrong. Please try again.",
+        }
+
+
+@router.get("/leaderboard")
+async def get_leaderboard_query(
+    state: str,
+    token_uid: str = Depends(verify_token),
+) -> dict:
+    """Return the weekly leaderboard for a state, passed as a query parameter."""
+    return await _fetch_leaderboard_data(state)
+
+
+@router.get("/leaderboard/{state}")
+async def get_leaderboard_path(
+    state: str,
+    token_uid: str = Depends(verify_token),
+) -> dict:
+    """Return the weekly leaderboard for a state, passed as a path parameter."""
+    return await _fetch_leaderboard_data(state)
+
+
+async def _fetch_leaderboard_data(state: str) -> dict:
+    """Helper function to retrieve leaderboard entries from Firestore."""
+    try:
+        db = get_db()
+        # Query gamification collection for matching state, order by weekly_score DESC, limit to 50
+        query = db.collection(_GAMIFICATION_COLLECTION) \
+                  .where("state", "==", state) \
+                  .order_by("weekly_score", direction=firestore.Query.DESCENDING) \
+                  .limit(50)
+        docs = query.get()
+
+        if not docs:
+            return {
+                "success": True,
+                "data": {
+                    "leaderboard": []
+                },
+                "error": None
+            }
+
+        # Gather user IDs
+        user_ids = [doc.id for doc in docs]
+
+        # Fetch all profiles in a single batch read to get user names
+        profile_refs = [db.collection("profiles").document(uid) for uid in user_ids]
+        profile_docs = db.get_all(profile_refs)
+        
+        # Map user_id to name from profile docs
+        names_map = {}
+        for p_doc in profile_docs:
+            if p_doc.exists:
+                p_data = p_doc.to_dict() or {}
+                names_map[p_doc.id] = p_data.get("name", "User")
+
+        leaderboard_entries = []
+        for doc in docs:
+            doc_data = doc.to_dict() or {}
+            user_id = doc.id
+            
+            # Determine top badge based on priority
+            badges = doc_data.get("badges", [])
+            top_badge = None
+            badge_priority = ["Quiz Master", "Week Warrior", "Carbon Cutter", "First Step"]
+            for b in badge_priority:
+                if b in badges:
+                    top_badge = b
+                    break
+            if not top_badge and badges:
+                top_badge = badges[0]
+
+            leaderboard_entries.append({
+                "user_id": user_id,
+                "name": names_map.get(user_id, "User"),
+                "awareness_score": doc_data.get("points", 0),
+                "weekly_score": doc_data.get("weekly_score", 0.0),
+                "top_badge": top_badge
+            })
+
+        return {
+            "success": True,
+            "data": {
+                "leaderboard": leaderboard_entries
+            },
+            "error": None
+        }
+    except Exception as e:
+        logger.error("get_leaderboard: unexpected error for state %s", state, exc_info=True)
+        return {
+            "success": False,
+            "data": None,
+            "error": "Something went wrong. Please try again."
         }
