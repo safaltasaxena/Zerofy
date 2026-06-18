@@ -1,5 +1,5 @@
 import { useSimulator, buildLogMessage } from '../hooks/useSimulator'
-import SimulatorBreakdown from './SimulatorBreakdown'
+import { useEffect } from 'react'
 
 const COMMUTE_OPTIONS = [
   { value: 'petrol_car',         label: 'Petrol Car' },
@@ -20,16 +20,36 @@ const DIET_OPTIONS = [
   { value: 'non_vegetarian',   label: 'Non-Vegetarian' },
 ]
 
-export default function SimulatorSection({ profile, onLogChanges }) {
+/**
+ * SimulatorSection — What-if habit slider panel.
+ *
+ * Props:
+ *   profile          — current user profile (sets slider defaults)
+ *   onLogChanges     — called with NLP message when user clicks "Log these changes"
+ *   onSimulatorChange — called with the current simulator breakdown whenever sliders change.
+ *                       Dashboard uses this to pass breakdown to ScoreBreakdown for the outer ring.
+ */
+export default function SimulatorSection({ profile, onLogChanges, onSimulatorChange }) {
   const { sliderState, breakdown, isLoading, handleSliderChange } = useSimulator({ profile })
 
   const onSelect  = (field)  => (e) => handleSliderChange(field, e.target.value)
   const onRange   = (field)  => (e) => handleSliderChange(field, Number(e.target.value))
   const onLog     = ()       => onLogChanges(buildLogMessage(sliderState, profile))
 
+  // Emit simulator breakdown upward whenever it changes so Dashboard
+  // can pass it to ScoreBreakdown for the outer ring display.
+  useEffect(() => {
+    if (onSimulatorChange) {
+      onSimulatorChange(breakdown)
+    }
+  }, [breakdown, onSimulatorChange])
+
   return (
     <section aria-label="Habit Simulator" className="bg-white rounded-xl border p-4 flex flex-col gap-6">
       <h3 className="font-semibold text-gray-900 text-lg">What if I changed my habits?</h3>
+      <p className="text-xs text-gray-500 -mt-4">
+        Move the sliders to see a second ring appear on the score chart above ↑
+      </p>
 
       {/* Commute mode */}
       <div className="flex flex-col gap-1">
@@ -118,7 +138,24 @@ export default function SimulatorSection({ profile, onLogChanges }) {
         <div className="flex justify-between text-xs text-gray-400"><span>0</span><span>10</span></div>
       </div>
 
-      <SimulatorBreakdown breakdown={breakdown} isLoading={isLoading} />
+      {/* Simulated total */}
+      <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+        <p className="text-xs text-gray-400 mb-1">Simulated daily CO₂</p>
+        <p className={`text-2xl font-bold ${
+          breakdown.total < (profile?.baseline_daily_co2_kg ?? breakdown.total)
+            ? 'text-green-600' : 'text-gray-800'
+        }`}>
+          {breakdown.total.toFixed(2)} <span className="text-sm font-normal text-gray-500">kg</span>
+        </p>
+        {profile?.baseline_daily_co2_kg != null && (
+          <p className="text-xs text-gray-500 mt-1">
+            {(breakdown.total - profile.baseline_daily_co2_kg) < 0
+              ? `🌱 ${Math.abs((breakdown.total - profile.baseline_daily_co2_kg).toFixed(2))} kg less than your baseline`
+              : `${((breakdown.total - profile.baseline_daily_co2_kg).toFixed(2))} kg more than your baseline`
+            }
+          </p>
+        )}
+      </div>
 
       <button
         onClick={onLog}

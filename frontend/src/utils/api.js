@@ -78,7 +78,9 @@ export async function logoutUser() {
 export async function getProfile() {
   try {
     const res = await api.get('/api/user/profile')
-    return unwrap(res)
+    const data = unwrap(res)
+    // Backend returns { profile: {...} } — unwrap the inner profile object
+    return data?.profile ?? data
   } catch (err) {
     throw new Error(err.response?.data?.error || err.message)
   }
@@ -88,7 +90,9 @@ export async function getProfile() {
 export async function updateProfile(profileData) {
   try {
     const res = await api.put('/api/user/profile', profileData)
-    return unwrap(res)
+    const data = unwrap(res)
+    // Backend returns { daily_co2_kg, profile } — return full data
+    return data
   } catch (err) {
     throw new Error(err.response?.data?.error || err.message)
   }

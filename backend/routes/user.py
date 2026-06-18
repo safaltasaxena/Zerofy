@@ -69,6 +69,24 @@ async def onboarding(
         db = get_db()
         db.collection(_PROFILES_COLLECTION).document(user_id).set(profile)
 
+        # Initialise gamification document with defaults if it does not exist yet.
+        # This ensures the gamification/{userId} doc exists immediately after onboarding
+        # so the dashboard, leaderboard, and profile pages can all read it without 404.
+        gam_ref = db.collection("gamification").document(user_id)
+        gam_doc = gam_ref.get()
+        if not gam_doc.exists:
+            gam_ref.set({
+                "streak": 0,
+                "log_streak": 0,
+                "points": 0,
+                "awareness_score": 0,
+                "badges": [],
+                "weekly_score": 0.0,
+                "last_active_date": "",
+                "lifetime_logs": 0,
+                "state": profile.get("state", ""),
+            })
+
         return {
             "success": True,
             "data": {"daily_co2_kg": daily_co2_kg, "profile": profile},

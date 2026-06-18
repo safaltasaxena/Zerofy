@@ -71,27 +71,34 @@ def calculate_diet_emission(diet_type: str) -> float:
         raise CalculationError(f"Diet emission calculation failed: {e}") from e
 
 
-def calculate_electricity_emission(ac_hours: float) -> float:
-    """Calculate daily CO2 kg from air-conditioner usage.
+def calculate_electricity_emission(ac_hours: float, monthly_units: float = 0.0) -> float:
+    """Calculate daily CO2 kg from air-conditioner usage and monthly electricity units.
 
-    Formula: grid_factor (kg CO2/kWh) × ac_kwh_per_hour (kWh/hr) × ac_hours (hr)
+    Formula: grid_factor × (ac_kwh_per_hour × ac_hours + monthly_units / 30)
 
     Args:
-        ac_hours: Hours of AC usage per day. Must be in range [0, 24].
+        ac_hours:      Hours of AC usage per day. Must be in range [0, 24].
+        monthly_units: Monthly electricity consumption in units (kWh). Must be >= 0.
 
     Returns:
         CO2 emitted in kg.
 
     Raises:
-        CalculationError: If ac_hours is out of the valid range.
+        CalculationError: If input values are out of the valid range.
     """
     try:
         if ac_hours < 0 or ac_hours > 24:
             raise CalculationError(
                 f"AC hours must be between 0 and 24, got: {ac_hours}"
             )
+        if monthly_units < 0:
+            raise CalculationError(
+                f"Monthly electricity units must be >= 0, got: {monthly_units}"
+            )
         electricity = EMISSION_FACTORS["electricity"]
-        return electricity["grid_factor"] * electricity["ac_kwh_per_hour"] * ac_hours
+        ac_kwh = electricity["ac_kwh_per_hour"] * ac_hours
+        general_kwh = monthly_units / 30.0
+        return electricity["grid_factor"] * (ac_kwh + general_kwh)
     except CalculationError:
         raise
     except Exception as e:
@@ -101,7 +108,7 @@ def calculate_electricity_emission(ac_hours: float) -> float:
 def calculate_daily_score(profile: dict) -> float:
     """Calculate total daily CO2 kg from a user's habit profile.
 
-    Sums transport, diet, and electricity (AC) emissions.
+    Sums transport, diet, and electricity (AC + general units) emissions.
     LPG is a monthly quantity — not included in the daily score directly;
     use calculate_breakdown for per-category breakdown including LPG.
 
@@ -126,7 +133,9 @@ def calculate_daily_score(profile: dict) -> float:
             profile["commute_mode"], profile["avg_daily_km"]
         )
         diet = calculate_diet_emission(profile["diet_type"])
-        electricity = calculate_electricity_emission(profile["ac_hours_per_day"])
+        electricity = calculate_electricity_emission(
+            profile["ac_hours_per_day"], profile.get("monthly_electricity_units", 0.0)
+        )
 
         total = transport + diet + electricity
         return round(total, 2)
@@ -216,7 +225,10 @@ def calculate_breakdown(profile: dict) -> dict:
         )
         diet = round(calculate_diet_emission(profile["diet_type"]), 2)
         electricity = round(
-            calculate_electricity_emission(profile["ac_hours_per_day"]), 2
+            calculate_electricity_emission(
+                profile["ac_hours_per_day"], profile.get("monthly_electricity_units", 0.0)
+            ),
+            2,
         )
 
         cylinders_per_month = profile.get("lpg_cylinders_per_month", 0)

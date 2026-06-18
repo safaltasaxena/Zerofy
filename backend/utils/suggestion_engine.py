@@ -335,9 +335,9 @@ def _parse_polish_response(raw: str) -> list[str] | None:
 
 
 def polish_suggestions(suggestions: list[str], persona: str) -> list[str]:
-    """Polish rule-based suggestions with a single Gemini call for persona-aware tone.
+    """Polish rule-based suggestions with a single AI call for persona-aware tone.
 
-    Sends one prompt to Gemini requesting a JSON array of rewritten suggestions.
+    Sends one prompt to the AI requesting a JSON array of rewritten suggestions.
     On any failure — API error, parse error, wrong response shape — the original
     suggestions are returned unchanged. This function never raises.
 
@@ -348,17 +348,26 @@ def polish_suggestions(suggestions: list[str], persona: str) -> list[str]:
     Returns:
         List of 3 polished suggestion strings, or the original list on any failure.
     """
+    import logging
+    logger = logging.getLogger(__name__)
     try:
         api_key = os.environ.get("OPENROUTER_API_KEY", "")
         if not api_key:
+            logger.warning("polish_suggestions: OPENROUTER_API_KEY not set — returning raw suggestions")
             return suggestions
-        
+
         prompt = _build_polish_prompt(suggestions, persona)
         text = generate_content(prompt)
         parsed = _parse_polish_response(text)
+        if parsed is None:
+            logger.warning(
+                "polish_suggestions: AI response could not be parsed — raw response: %s",
+                text[:200] if text else "(empty)"
+            )
         return parsed if parsed is not None else suggestions
 
-    except Exception:
+    except Exception as exc:
+        logger.warning("polish_suggestions: AI call failed (%s) — returning raw suggestions", exc)
         # Degrade gracefully — always return the original suggestions
         return suggestions
 

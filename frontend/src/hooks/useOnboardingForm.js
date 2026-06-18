@@ -16,9 +16,9 @@
  *   setHoneypot  — (value) => void
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { submitOnboarding } from '../utils/api'
+import { submitOnboarding, getProfile } from '../utils/api'
 
 // ── Validation messages — exact text from ACCESSIBILITY.md §7 ─────────────────
 
@@ -91,6 +91,24 @@ function validateAll(fields) {
   return errs
 }
 
+// ── Profile to form fields mapper ─────────────────────────────────────────────
+
+function profileToFields(profile) {
+  if (!profile) return INITIAL_FIELDS
+  return {
+    name:                      profile.name || '',
+    state:                     profile.state || '',
+    city:                      profile.city || '',
+    commute_mode:              profile.commute_mode || '',
+    avg_daily_km:              profile.avg_daily_km !== undefined ? String(profile.avg_daily_km) : '',
+    diet_type:                 profile.diet_type || '',
+    ac_hours_per_day:          profile.ac_hours_per_day !== undefined ? String(profile.ac_hours_per_day) : '',
+    monthly_electricity_units: profile.monthly_electricity_units !== undefined ? String(profile.monthly_electricity_units) : '',
+    lpg_cylinders_per_month:   profile.lpg_cylinders_per_month !== undefined ? String(profile.lpg_cylinders_per_month) : '',
+    persona:                   profile.persona || '',
+  }
+}
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useOnboardingForm() {
@@ -101,6 +119,27 @@ export function useOnboardingForm() {
   const [networkError, setNetworkError] = useState(null)
   const [isLoading, setIsLoading]     = useState(false)
   const [honeypot, setHoneypot]       = useState('')
+  const [isPrefilling, setIsPrefilling] = useState(true)
+
+  // On mount, try to load existing profile and pre-fill the form.
+  // If no profile exists (new user), the form starts blank — that's fine.
+  useEffect(() => {
+    let cancelled = false
+    async function prefillFromProfile() {
+      try {
+        const profile = await getProfile()
+        if (!cancelled && profile) {
+          setFields(profileToFields(profile))
+        }
+      } catch {
+        // No existing profile (first-time user) — start with blank form
+      } finally {
+        if (!cancelled) setIsPrefilling(false)
+      }
+    }
+    prefillFromProfile()
+    return () => { cancelled = true }
+  }, [])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -153,7 +192,7 @@ export function useOnboardingForm() {
     fields,
     errors,
     networkError,
-    isLoading,
+    isLoading: isLoading || isPrefilling,
     honeypot,
     setHoneypot,
     handleChange,
@@ -161,3 +200,4 @@ export function useOnboardingForm() {
     handleSubmit,
   }
 }
+

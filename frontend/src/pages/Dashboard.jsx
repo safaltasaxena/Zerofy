@@ -7,7 +7,7 @@
  * Smooth scroll with prefers-reduced-motion check per ACCESSIBILITY.md §10.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { getProfile, getTodayLog, getGamification, getWeeklyTrend } from '../utils/api'
 
@@ -37,6 +37,10 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [chatPrefill, setChatPrefill] = useState('')
+
+  // simulatorBreakdown is lifted up from SimulatorSection so ScoreBreakdown
+  // can render the outer ring showing the what-if scenario.
+  const [simulatorBreakdown, setSimulatorBreakdown] = useState(null)
 
   const userId = localStorage.getItem('zerofy_user_id')
 
@@ -87,6 +91,11 @@ export default function Dashboard() {
   const handleLogChanges = (message) => {
     setChatPrefill(message)
   }
+
+  // Stable callback so SimulatorSection's useEffect doesn't re-run on every render
+  const handleSimulatorChange = useCallback((breakdown) => {
+    setSimulatorBreakdown(breakdown)
+  }, [])
 
   const hasLog = todayLog && todayLog.breakdown && todayLog.breakdown.total > 0
   const breakdown = hasLog ? todayLog.breakdown : (profile?.score_breakdown || EMPTY_BREAKDOWN)
@@ -159,7 +168,13 @@ export default function Dashboard() {
       <main id="main-content" className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-8">
         <section id="score" aria-labelledby="score-heading">
           <h2 id="score-heading" className="text-lg font-bold text-gray-800 mb-3">Today's Score</h2>
-          <ScoreBreakdown breakdown={breakdown} analogy={analogy} isLoading={isLoading} />
+          {/* simulatorBreakdown is passed so the chart shows an outer ring when sliders change */}
+          <ScoreBreakdown
+            breakdown={breakdown}
+            analogy={analogy}
+            isLoading={isLoading}
+            simulatorBreakdown={simulatorBreakdown}
+          />
         </section>
 
         <section id="suggestions" aria-labelledby="suggestions-heading">
@@ -177,6 +192,7 @@ export default function Dashboard() {
           <SimulatorSection
             profile={profile}
             onLogChanges={handleLogChanges}
+            onSimulatorChange={handleSimulatorChange}
           />
         </section>
 
