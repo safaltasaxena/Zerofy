@@ -63,7 +63,7 @@ const EMPTY_BREAKDOWN = { transport: 0, diet: 0, electricity: 0, lpg: 0, total: 
 function safeSimulate(params) {
   try {
     const result = simulate(params)
-    return result.breakdown
+    return { ...result.breakdown }
   } catch {
     return EMPTY_BREAKDOWN
   }
@@ -77,6 +77,7 @@ function buildInitialState(profile) {
     avg_daily_km: profile?.avg_daily_km ?? 10,
     diet_type: profile?.diet_type || 'vegetarian',
     ac_hours_per_day: profile?.ac_hours_per_day ?? 2,
+    monthly_electricity_units: profile?.monthly_electricity_units ?? 150,
     lpg_cylinders_per_month: profile?.lpg_cylinders_per_month ?? 1,
   }
 }
@@ -93,7 +94,12 @@ export function useSimulator({ profile }) {
     setIsLoading(false)
   }
 
-  const debouncedRef = useRef(debounce(recalculate, 200))
+  const debouncedRef = useRef(null)
+
+  useEffect(() => {
+    debouncedRef.current = debounce(recalculate, 200)
+    return () => debouncedRef.current?.cancel()
+  }, [])
 
   // Cancel pending debounce on unmount
   useEffect(() => {
@@ -104,15 +110,18 @@ export function useSimulator({ profile }) {
   // FIX 2: Sync sliders when profile loads async after initial mount
   useEffect(() => {
     if (profile) {
-      setSliderState(buildInitialState(profile))
+      const initial = buildInitialState(profile)
+      setSliderState(initial)
+      recalculate(initial)
     }
   }, [profile])
 
   const handleSliderChange = (field, value) => {
-    const next = { ...sliderState, [field]: value }
+    const next = { ...sliderState, [field]: (field === "commute_mode" || field === "diet_type") ? value : Number(value) }
     setSliderState(next)
-    debouncedRef.current(next)
+    debouncedRef.current?.(next)
   }
 
   return { sliderState, breakdown, isLoading, handleSliderChange, buildLogMessage }
 }
+

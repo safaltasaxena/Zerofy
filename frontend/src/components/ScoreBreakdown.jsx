@@ -13,18 +13,18 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 const SLICE_META = [
-  { key: 'transport',   label: 'Transport',   color: '#3b82f6' },
-  { key: 'diet',        label: 'Diet',         color: '#22c55e' },
-  { key: 'electricity', label: 'Electricity',  color: '#f59e0b' },
-  { key: 'lpg',         label: 'LPG',          color: '#ef4444' },
+  { key: 'transport', label: 'Transport', color: '#3b82f6' },
+  { key: 'diet', label: 'Diet', color: '#22c55e' },
+  { key: 'electricity', label: 'Electricity', color: '#f59e0b' },
+  { key: 'lpg', label: 'LPG', color: '#ef4444' },
 ]
 
 // Lighter tint versions for the simulator outer ring
 const SIMULATOR_COLORS = {
-  transport:   '#93c5fd',   // blue-300
-  diet:        '#86efac',   // green-300
+  transport: '#93c5fd',   // blue-300
+  diet: '#86efac',   // green-300
   electricity: '#fcd34d',   // amber-300
-  lpg:         '#fca5a5',   // red-300
+  lpg: '#fca5a5',   // red-300
 }
 
 // SVG presentation attributes are not inline styles — fill/fontSize are valid here.
@@ -56,7 +56,11 @@ export default function ScoreBreakdown({ breakdown, analogy, isLoading, simulato
   const total = breakdown?.total ?? 0
   const isAllZero = total === 0
 
-  if (isAllZero) {
+  const hasSimulator =
+    simulatorBreakdown &&
+    Math.abs(simulatorBreakdown.total) > 0.01
+
+  if (isAllZero && !hasSimulator) {
     return (
       <div className="bg-white rounded-xl p-6 text-center">
         <p className="text-4xl font-bold text-gray-800 mb-1">0.00</p>
@@ -72,25 +76,33 @@ export default function ScoreBreakdown({ breakdown, analogy, isLoading, simulato
     .map(({ key, label, color }) => ({ name: label, key, value: breakdown[key] ?? 0, color }))
     .filter((d) => d.value > 0)
 
-  // Build simulator outer ring data (only shown when simulatorBreakdown differs from breakdown)
-  const hasSimulator = simulatorBreakdown && simulatorBreakdown.total != null
-  const simChartData = hasSimulator
+  // Ensure inner pie has a structure even when actual data is 0 but simulator is active
+  const displayChartData = chartData.length > 0
+    ? chartData
+    : [{ name: 'No data', value: 0.001, color: '#f3f4f6' }]
+
+  // Build simulator outer ring data (only shown when simulatorBreakdown differs significantly from breakdown)
+  const isSimulatorDiff =
+    simulatorBreakdown &&
+    Math.abs(simulatorBreakdown.total - total) > 0.01
+
+  const simChartData = isSimulatorDiff
     ? SLICE_META.map(({ key, label }) => ({
-        name: `Sim: ${label}`,
-        key,
-        value: simulatorBreakdown[key] ?? 0,
-        color: SIMULATOR_COLORS[key],
-      })).filter((d) => d.value > 0)
+      name: `Sim: ${label}`,
+      key,
+      value: simulatorBreakdown[key] ?? 0,
+      color: SIMULATOR_COLORS[key],
+    })).filter((d) => d.value > 0)
     : []
 
-  const simTotal = hasSimulator ? (simulatorBreakdown.total ?? 0) : null
+  const simTotal = isSimulatorDiff ? (simulatorBreakdown.total ?? 0) : null
   const simDelta = simTotal !== null ? (simTotal - total).toFixed(2) : null
 
   const ariaLabel =
     `Today's carbon breakdown: Transport ${breakdown.transport}kg, ` +
     `Diet ${breakdown.diet}kg, Electricity ${breakdown.electricity}kg, LPG ${breakdown.lpg}kg`
 
-  const chartHeight = hasSimulator ? 260 : 220
+  const chartHeight = 240
 
   return (
     <div className="bg-white rounded-xl p-4">
@@ -113,10 +125,10 @@ export default function ScoreBreakdown({ breakdown, analogy, isLoading, simulato
       )}
       <div role="img" aria-label={ariaLabel} className="relative">
         <ResponsiveContainer width="100%" height={chartHeight}>
-          <PieChart>
+          <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
             {/* Inner ring — actual today score */}
             <Pie
-              data={chartData}
+              data={displayChartData}
               cx="50%"
               cy="50%"
               innerRadius={55}
@@ -177,3 +189,4 @@ export default function ScoreBreakdown({ breakdown, analogy, isLoading, simulato
     </div>
   )
 }
+

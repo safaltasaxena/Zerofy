@@ -42,7 +42,7 @@ from utils.calculator import (
 )
 from utils.analogy_engine import get_analogy
 from utils.gemini_parser import ParseFailedError, parse_user_message
-from utils.suggestion_engine import get_suggestions
+from utils.suggestion_engine import get_suggestions, get_rule_based_suggestions
 
 logger = logging.getLogger(__name__)
 
@@ -443,34 +443,45 @@ async def chat_update(
                 updated_log[key] = val
         updated_log["user_id"] = user_id
         updated_log["date"] = date.today().isoformat()
-
         db.collection(_DAILY_LOGS_COLLECTION).document(doc_id).set(updated_log)
-
-        # Step 3-6 — calculations (pure math — no Gemini)
-        new_score = calculate_daily_score(updated_log)
-        breakdown = calculate_breakdown(updated_log)
-        delta = calculate_delta(old_score, new_score)
-        analogy = get_analogy(new_score)
 
         # Load profile for persona-aware suggestions
         profile_doc = db.collection(_PROFILES_COLLECTION).document(user_id).get()
         profile = profile_doc.to_dict() if profile_doc.exists else {}
         persona = profile.get("persona", "general")
 
+        merged_log = {**profile, **updated_log}
+        logger.info("Merged log for %s: %s", user_id, merged_log)
+
+        # Step 3-6 — calculations (pure math — no Gemini)
+        new_score = calculate_daily_score(merged_log)
+        breakdown = calculate_breakdown(merged_log)
+        delta = calculate_delta(old_score, new_score)
+        analogy = get_analogy(new_score)
+
         # Step 7 — suggestions: run in background, don't await
+        logger.info("AI suggestions started for %s", user_id)
         suggestions_task = asyncio.create_task(
-            _fetch_suggestions_async(updated_log, persona, user_id)
+            _fetch_suggestions_async(merged_log, persona, user_id)
         )
+
 
         # Step 8 — gamification: run in background, don't await
         asyncio.create_task(_update_gamification_async(user_id, points_delta=10))
 
-        # Await suggestions with a short timeout so they can be included in response
-        # if ready quickly; otherwise return empty list — frontend handles gracefully
+        # Await suggestions with a longer timeout (10s) for OpenRouter latency
         try:
-            suggestions = await asyncio.wait_for(suggestions_task, timeout=3.0)
+            logger.info("AI suggestions started for %s", user_id)
+            suggestions = await asyncio.wait_for(
+                suggestions_task,
+                timeout=10.0
+            )
         except asyncio.TimeoutError:
-            suggestions = []
+            logger.warning("AI suggestions timeout for %s", user_id)
+            suggestions = get_rule_based_suggestions(profile, persona)
+        except Exception as e:
+            logger.error("AI suggestions failed for %s: %s", user_id, e)
+            suggestions = get_rule_based_suggestions(profile, persona)
 
         return {
             "success": True,

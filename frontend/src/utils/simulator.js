@@ -54,8 +54,11 @@ function _calcDiet(dietType, diet) {
  * @param {Object} electricity   - Electricity section of the constants object
  * @returns {number} Electricity CO2 in kg
  */
-function _calcElectricity(acHoursPerDay, electricity) {
-  return electricity.grid_factor * electricity.ac_kwh_per_hour * acHoursPerDay
+function _calcElectricity(acHoursPerDay, monthlyUnits = 0, electricity) {
+  const acKwh = electricity.ac_kwh_per_hour * acHoursPerDay
+  const generalKwh = monthlyUnits / 30.0
+  return electricity.grid_factor * (acKwh + generalKwh)
+  
 }
 
 /**
@@ -89,12 +92,12 @@ function _calcLpg(cylindersPerMonth, lpg) {
  */
 export function simulate(params) {
   try {
-    const { commute_mode, avg_daily_km, diet_type, ac_hours_per_day, lpg_cylinders_per_month } = params
+    const { commute_mode, avg_daily_km, diet_type, ac_hours_per_day, lpg_cylinders_per_month, monthly_electricity_units = 0 } = params
     const constants = getConstants()
 
     const transport   = _calcTransport(commute_mode, avg_daily_km, constants.transport)
     const diet        = _calcDiet(diet_type, constants.diet)
-    const electricity = _calcElectricity(ac_hours_per_day, constants.electricity)
+    const electricity = _calcElectricity(ac_hours_per_day, monthly_electricity_units, constants.electricity)
     const lpg        = _calcLpg(lpg_cylinders_per_month, constants.lpg)
 
     const total = transport + diet + electricity + lpg
@@ -114,3 +117,4 @@ export function simulate(params) {
     throw new Error(`simulate() failed: ${err.message}`)
   }
 }
+
