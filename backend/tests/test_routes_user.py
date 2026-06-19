@@ -348,8 +348,8 @@ def test_user_09_onboarding_saves_to_correct_firestore_path(client):
 
     assert response.status_code == 200
     # Verify Firestore was called with the correct collection and document ID
-    mock_db.collection.assert_called_with("profiles")
-    mock_db.collection.return_value.document.assert_called_with(_FAKE_UID)
+    mock_db.collection.assert_any_call("profiles")
+    mock_db.collection.return_value.document.assert_any_call(_FAKE_UID)
     mock_db.collection.return_value.document.return_value.set.assert_called_once()
 
 

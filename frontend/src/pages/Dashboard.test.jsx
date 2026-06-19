@@ -103,7 +103,7 @@ const MOCK_GAMIFICATION = {
 }
 
 const MOCK_TREND = {
-  logs: [
+  trend: [
     { date: '2026-06-07', daily_co2_kg: 4.2 },
     { date: '2026-06-08', daily_co2_kg: 3.8 },
     { date: '2026-06-09', daily_co2_kg: 5.1 },

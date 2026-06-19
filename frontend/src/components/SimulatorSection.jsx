@@ -1,5 +1,6 @@
 import { useSimulator, buildLogMessage } from '../hooks/useSimulator'
 import { useEffect } from 'react'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
 const COMMUTE_OPTIONS = [
   { value: 'petrol_car',         label: 'Petrol Car' },
@@ -155,6 +156,41 @@ export default function SimulatorSection({ profile, onLogChanges, onSimulatorCha
             }
           </p>
         )}
+      </div>
+
+      {/* Simulated breakdown pie chart */}
+      <div
+        role="img"
+        aria-label={`Simulated CO2 breakdown: Transport ${breakdown.transport.toFixed(2)}kg, Diet ${breakdown.diet.toFixed(2)}kg, Electricity ${breakdown.electricity.toFixed(2)}kg, LPG ${breakdown.lpg.toFixed(2)}kg`}
+        className="w-full h-48 relative"
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={[
+                { name: 'Transport', value: breakdown.transport, color: '#3b82f6' },
+                { name: 'Diet', value: breakdown.diet, color: '#22c55e' },
+                { name: 'Electricity', value: breakdown.electricity, color: '#f59e0b' },
+                { name: 'LPG', value: breakdown.lpg, color: '#ef4444' },
+              ].filter(d => d.value > 0)}
+              cx="50%"
+              cy="50%"
+              innerRadius={45}
+              outerRadius={75}
+              dataKey="value"
+            >
+              {[
+                { key: 'transport', color: '#3b82f6' },
+                { key: 'diet', color: '#22c55e' },
+                { key: 'electricity', color: '#f59e0b' },
+                { key: 'lpg', color: '#ef4444' },
+              ].filter(cell => breakdown[cell.key] > 0).map((cell) => (
+                <Cell key={cell.key} fill={cell.color} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(value) => `${Number(value).toFixed(2)} kg`} />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
 
       <button

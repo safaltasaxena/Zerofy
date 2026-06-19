@@ -29,7 +29,8 @@ let _constants = null
  */
 export async function loadConstants() {
   if (_constants) return
-  _constants = await fetchConstants()
+  const data = await fetchConstants()
+  _constants = data?.constants || data
 }
 
 /**

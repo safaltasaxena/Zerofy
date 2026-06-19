@@ -16,10 +16,10 @@ vi.mock('../utils/simulator', () => ({
 // Mock getConstants so constants.js doesn't throw
 vi.mock('../utils/constants', () => ({
   getConstants: vi.fn(() => ({
-    transport:   { bus: 0.08, metro: 0.02, petrol_car: 0.21, diesel_car: 0.17, petrol_two_wheeler: 0.05, electric_vehicle: 0.01, auto_rickshaw: 0.06, walking: 0, cycling: 0 },
-    diet:        { vegan: 1.5, vegetarian: 2.0, eggetarian: 2.5, non_vegetarian: 3.5 },
+    transport: { bus: 0.08, metro: 0.02, petrol_car: 0.21, diesel_car: 0.17, petrol_two_wheeler: 0.05, electric_vehicle: 0.01, auto_rickshaw: 0.06, walking: 0, cycling: 0 },
+    diet: { vegan: 1.5, vegetarian: 2.0, eggetarian: 2.5, non_vegetarian: 3.5 },
     electricity: { grid_factor: 0.82, ac_kwh_per_hour: 1.5 },
-    lpg:         { kg_co2_per_cylinder: 11.7 },
+    lpg: { kg_co2_per_cylinder: 11.7 },
   })),
 }))
 

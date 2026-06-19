@@ -354,7 +354,11 @@ describe('A11Y-11: DailyQuiz — locked message visible when already completed',
       already_submitted: true,
     })
 
-    const { container } = render(<DailyQuiz userId="test-uid" />)
+    const { container } = render(
+      <MemoryRouter>
+        <DailyQuiz userId="test-uid" />
+      </MemoryRouter>
+    )
 
     // Wait for any async state updates
     await screen.findByRole('status', { timeout: 2000 }).catch(() => null)

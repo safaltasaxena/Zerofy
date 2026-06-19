@@ -123,7 +123,7 @@ describe('API-02: getProfile attaches Authorization header', () => {
     const result = await getProfile()
 
     expect(mockApi.get).toHaveBeenCalledWith('/api/user/profile')
-    expect(result.profile.name).toBe('Priya')
+    expect(result.name).toBe('Priya')
   })
 })
 

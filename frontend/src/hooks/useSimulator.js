@@ -95,6 +95,7 @@ export function useSimulator({ profile }) {
   }
 
   const debouncedRef = useRef(null)
+  const isFirstRender = useRef(true)
 
   useEffect(() => {
     debouncedRef.current = debounce(recalculate, 200)
@@ -104,7 +105,7 @@ export function useSimulator({ profile }) {
   // Cancel pending debounce on unmount
   useEffect(() => {
     const debounced = debouncedRef.current
-    return () => debounced.cancel()
+    return () => debounced?.cancel()
   }, [])
 
   // FIX 2: Sync sliders when profile loads async after initial mount
@@ -112,7 +113,11 @@ export function useSimulator({ profile }) {
     if (profile) {
       const initial = buildInitialState(profile)
       setSliderState(initial)
-      recalculate(initial)
+      if (isFirstRender.current) {
+        isFirstRender.current = false
+      } else {
+        recalculate(initial)
+      }
     }
   }, [profile])
 
@@ -124,4 +129,3 @@ export function useSimulator({ profile }) {
 
   return { sliderState, breakdown, isLoading, handleSliderChange, buildLogMessage }
 }
-
