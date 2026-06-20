@@ -5,6 +5,7 @@ All header values are exact as specified — no environment variation.
 """
 
 # Standard library
+import os
 from typing import Callable
 
 # Third-party
@@ -23,9 +24,9 @@ _HEADER_PERMISSIONS_POLICY: str = "geolocation=(), microphone=(), camera=()"
 _HEADER_HSTS: str = "max-age=63072000; includeSubDomains"
 _HEADER_CSP: str = (
     "default-src 'self'; "
-    "script-src 'self'; "
-    "style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data:; "
+    "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+    "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+    "img-src 'self' data: https:; "
     "connect-src 'self' https://generativelanguage.googleapis.com; "
     "frame-ancestors 'none'"
 )
@@ -57,6 +58,43 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         Returns:
             The response with all security headers attached.
         """
+        if request.method == "OPTIONS":
+            headers = dict(_SECURITY_HEADERS)
+            origin = request.headers.get("origin")
+            if origin:
+                allowed_origins = [
+                    o.strip()
+                    for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+                    if o.strip()
+                ]
+                
+                # Check if origin is allowed (explicitly, localhost, or vercel.app)
+                is_allowed = (
+                    "*" in allowed_origins
+                    or origin in allowed_origins
+                    or origin.startswith("http://localhost:")
+                    or origin.endswith(".vercel.app")
+                )
+                
+                if is_allowed:
+                    headers["Access-Control-Allow-Origin"] = origin
+                    headers["Access-Control-Allow-Credentials"] = "true"
+                else:
+                    headers["Access-Control-Allow-Origin"] = allowed_origins[0] if allowed_origins else "http://localhost:5173"
+                    headers["Access-Control-Allow-Credentials"] = "true"
+            else:
+                headers["Access-Control-Allow-Origin"] = "*"
+
+            # Allow any methods and headers requested
+            req_method = request.headers.get("access-control-request-method")
+            headers["Access-Control-Allow-Methods"] = req_method if req_method else "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+
+            req_headers = request.headers.get("access-control-request-headers")
+            headers["Access-Control-Allow-Headers"] = req_headers if req_headers else "Content-Type, Authorization, X-Requested-With"
+            headers["Access-Control-Max-Age"] = "600"
+
+            return Response(status_code=204, headers=headers)
+
         try:
             response: Response = await call_next(request)
         except Exception as e:

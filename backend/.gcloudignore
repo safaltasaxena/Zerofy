@@ -1,0 +1,16 @@
+# Ignore local virtual environment
+venv/
+
+# Ignore python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore testing and coverage files
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Ignore local environment files (we pass env vars directly during deploy)
+.env

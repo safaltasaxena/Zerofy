@@ -57,6 +57,8 @@ class RequestFilterMiddleware(BaseHTTPMiddleware):
     Scans: URL path + query string, and the first _MAX_BODY_SCAN_BYTES of the body.
     On match: returns 400 with the standard error shape and logs a warning.
     Never reveals which pattern matched.
+
+
     """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:

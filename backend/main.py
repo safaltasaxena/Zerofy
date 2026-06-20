@@ -105,9 +105,10 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
+        allow_origin_regex=r"https://.*\.vercel\.app",
         allow_credentials=True,
-        allow_methods=_ALLOWED_METHODS,
-        allow_headers=_ALLOWED_HEADERS,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     # [6] SecurityHeadersMiddleware — outermost (added last)
