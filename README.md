@@ -336,32 +336,14 @@ Please ensure all tests pass before submitting a PR.
 
 ---
 
-## 📝 License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) file for details.
-
----
-
 ## 📧 Support & Contact
 
 - **Issues**: [GitHub Issues](https://github.com/safaltasaxena/Zerofy/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/safaltasaxena/Zerofy/discussions)
-- **Email**: support@zerofy.app
+- **Email**: safaltasaxena7@gmail.com
 
 ---
 
-## 🙏 Acknowledgments
-
-- Built with ❤️ for climate action and environmental sustainability
-- Inspired by the urgent need for personalized, data-driven solutions
-- Special thanks to all open-source contributors and the community
-
----
-
-<div align="center">
-
-**[🌱 Start reducing your carbon footprint today!](https://zerofy.app)**
-
-Made with ☀️ for a sustainable future
+Made with ❤️ for a sustainable future
 
 </div>
