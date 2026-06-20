@@ -36,15 +36,11 @@ Zerofy combines **real-time emissions tracking**, **AI-powered personalization**
 
 ## 🚀 Key Features
 
-# 🤯 Making Carbon… Actually Understandable
--Numbers like “5 kg CO₂” mean nothing to most people.
--So Zerofy translates it into real-world impact:
--👉 “That’s like boiling a kettle 50 times”
--👉 “Or sitting in traffic for 30 minutes”
--👉 “Or charging your phone 300 times”
--Suddenly… it clicks.
--👉 You don’t just see your impact
--👉 You feel it
+### 🤯 Carbon Equivalence Engine
+* Translates carbon emissions into relatable real-world equivalents (e.g., kettles, traffic time, phone charging)
+* Helps users intuitively understand impact instead of abstract CO₂ numbers
+* Bridges the gap between data and perception through familiar analogies
+
 
 ### 🧠 Hyper-Personalized Insights
 - AI-generated recommendations tailored to user's highest-impact habits
